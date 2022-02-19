@@ -3,11 +3,9 @@ provider "aws" {
   region  = "us-east-1"
 }
 
-# Providing a reference to our default VPC
 resource "aws_default_vpc" "default_vpc" {
 }
 
-# Providing a reference to our default subnets
 resource "aws_default_subnet" "default_subnet_a" {
   availability_zone = "us-east-1a"
 }
@@ -48,10 +46,10 @@ resource "aws_ecs_task_definition" "my_first_task" {
     }
   ]
   DEFINITION
-  requires_compatibilities = ["FARGATE"] # Stating that we are using ECS Fargate
-  network_mode             = "awsvpc"    # Using awsvpc as our network mode as this is required for Fargate
-  memory                   = 512         # Specifying the memory our container requires
-  cpu                      = 256         # Specifying the CPU our container requires
+  requires_compatibilities = ["FARGATE"] 
+  network_mode             = "awsvpc"    
+  memory                   = 512         
+  cpu                      = 256         
   execution_role_arn       = "${aws_iam_role.ecsTaskExecutionRole.arn}"
 }
 
@@ -79,22 +77,20 @@ resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
 resource "aws_alb" "application_load_balancer" {
   name               = format("%s-lb", var.app_name) 
   load_balancer_type = "application"
-  subnets = [ # Referencing the default subnets
+  subnets = [ 
     "${aws_default_subnet.default_subnet_a.id}",
     "${aws_default_subnet.default_subnet_b.id}",
     "${aws_default_subnet.default_subnet_c.id}"
   ]
-  # Referencing the security group
   security_groups = ["${aws_security_group.load_balancer_security_group.id}"]
 }
 
-# Creating a security group for the load balancer:
 resource "aws_security_group" "load_balancer_security_group" {
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allowing traffic in from all sources
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -115,32 +111,32 @@ resource "aws_lb_target_group" "target_group" {
 }
 
 resource "aws_lb_listener" "listener" {
-  load_balancer_arn = "${aws_alb.application_load_balancer.arn}" # Referencing our load balancer
+  load_balancer_arn = "${aws_alb.application_load_balancer.arn}"
   port              = "80"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
-    target_group_arn = "${aws_lb_target_group.target_group.arn}" # Referencing our tagrte group
+    target_group_arn = "${aws_lb_target_group.target_group.arn}"
   }
 }
 
 resource "aws_ecs_service" "my_first_service" {
-  name            = format("%s-service", var.app_name)                           # Naming our first service
-  cluster         = "${aws_ecs_cluster.my_cluster.id}"             # Referencing our created Cluster
-  task_definition = "${aws_ecs_task_definition.my_first_task.arn}" # Referencing the task our service will spin up
+  name            = format("%s-service", var.app_name)                           
+  cluster         = "${aws_ecs_cluster.my_cluster.id}"
+  task_definition = "${aws_ecs_task_definition.my_first_task.arn}" 
   launch_type     = "FARGATE"
   desired_count   = 1 
 
   load_balancer {
-    target_group_arn = "${aws_lb_target_group.target_group.arn}" # Referencing our target group
+    target_group_arn = "${aws_lb_target_group.target_group.arn}"
     container_name   = "${aws_ecs_task_definition.my_first_task.family}"
     container_port   = 3000
   }
 
   network_configuration {
     subnets          = ["${aws_default_subnet.default_subnet_a.id}", "${aws_default_subnet.default_subnet_b.id}", "${aws_default_subnet.default_subnet_c.id}"]
-    assign_public_ip = true                                                # Providing our containers with public IPs
-    security_groups  = ["${aws_security_group.service_security_group.id}"] # Setting the security group
+    assign_public_ip = true                                               
+    security_groups  = ["${aws_security_group.service_security_group.id}"]
   }
 }
 
@@ -150,7 +146,6 @@ resource "aws_security_group" "service_security_group" {
     from_port = 0
     to_port   = 0
     protocol  = "-1"
-    # Only allowing traffic in from the load balancer security group
     security_groups = ["${aws_security_group.load_balancer_security_group.id}"]
   }
 
